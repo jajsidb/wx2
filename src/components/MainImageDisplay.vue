@@ -178,7 +178,8 @@ import {
   ElSelect, 
   ElOption, 
   ElColorPicker,
-  ElMessage 
+  ElMessage,
+  ElNotification 
 } from 'element-plus'
 import { 
   Plus, 
@@ -187,8 +188,11 @@ import {
   Download, 
   ArrowLeft, 
   ArrowRight, 
-  Close 
+  Close,
+  Refresh 
 } from '@element-plus/icons-vue'
+import html2canvas from 'html2canvas'
+import { handleApiError, showErrorMessage, showSuccessMessage } from '../utils/errorHandler'
 
 // 接口定义
 interface TextOverlay {
@@ -360,7 +364,7 @@ const onImageLoad = () => {
 const onImageError = () => {
   imageError.value = true
   imageLoaded.value = false
-  ElMessage.error('图片加载失败')
+  showErrorMessage('图片加载失败')
 }
 
 const addTextOverlay = () => {
@@ -580,10 +584,11 @@ const exportImage = async () => {
       link.href = dataUrl
       link.click()
       
-      ElMessage.success('图片导出成功')
+      showSuccessMessage('图片导出成功')
     }
-  } catch (error) {
-    ElMessage.error('图片导出失败')
+  } catch (error: any) {
+    const apiError = handleApiError(error, '导出图片')
+    showErrorMessage(apiError)
   } finally {
     showCanvas.value = false
   }

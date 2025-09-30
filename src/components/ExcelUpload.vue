@@ -276,6 +276,7 @@ import { Upload, UploadFilled, Loading, Delete } from '@element-plus/icons-vue'
 import type { UploadFile, UploadFiles, UploadRawFile } from 'element-plus'
 import * as XLSX from 'xlsx'
 import { uploadExcel, saveStudentsToDatabase } from '../api';
+import { handleApiError, showErrorMessage, showSuccessMessage, showWarningMessage } from '../utils/errorHandler'
 
 // 学生数据接口定义
 interface StudentData {
@@ -384,13 +385,13 @@ const beforeUpload = (rawFile: UploadRawFile) => {
                   rawFile.name.endsWith('.xls')
   
   if (!isExcel) {
-    ElMessage.error('只能上传 Excel 文件！')
+    showErrorMessage('只能上传 Excel 文件！')
     return false
   }
   
   const isLtMaxSize = rawFile.size / 1024 / 1024 < props.maxSizeMB
   if (!isLtMaxSize) {
-    ElMessage.error(`文件大小不能超过 ${props.maxSizeMB}MB！`)
+    showErrorMessage(`文件大小不能超过 ${props.maxSizeMB}MB！`)
     return false
   }
   
@@ -494,7 +495,7 @@ const parseExcelFile = async () => {
     parsedData.value = convertedData
     emit('dataParsed', convertedData)
     
-    ElMessage.success(`Excel解析成功！共解析${convertedData.length}条数据，其中有效数据${validDataCount.value}条`)
+    showSuccessMessage(`Excel解析成功！共解析${convertedData.length}条数据，其中有效数据${validDataCount.value}条`)
     
     // 延迟重置解析状态
     setTimeout(() => {
@@ -509,7 +510,8 @@ const parseExcelFile = async () => {
     parseProgressText.value = '解析失败'
     
     const errorMessage = error.message || '文件解析失败，请检查文件格式'
-    ElMessage.error(errorMessage)
+    const apiError = handleApiError(error, '解析Excel文件')
+    showErrorMessage(apiError)
     console.error('Excel解析错误:', error)
     
     parsedData.value = []
@@ -536,7 +538,7 @@ const saveEditedData = () => {
     item.counselor || item.dormitoryNumber || item.bedNumber
   )
   editDialogVisible.value = false
-  ElMessage.success('数据修改已保存')
+  showSuccessMessage('数据修改已保存')
   emit('dataParsed', parsedData.value)
 }
 
@@ -569,12 +571,12 @@ const clearData = () => {
 
 const handleUpload = async () => {
   if (parsedData.value.length === 0) {
-    ElMessage.warning('没有可上传的数据')
+    showWarningMessage('没有可上传的数据')
     return
   }
   
   if (invalidDataCount.value > 0) {
-    ElMessage.warning('存在无效数据，请先修正后再上传')
+    showWarningMessage('存在无效数据，请先修正后再上传')
     return
   }
 
@@ -615,12 +617,7 @@ const handleUpload = async () => {
         message += `\n失败原因：\n${fail_reasons.join('\n')}`
     }
 
-    ElMessage({
-        message: message,
-        type: 'success',
-        dangerouslyUseHTMLString: true,
-        duration: 5000,
-    });
+    showSuccessMessage(message)
 
     emit('uploadSuccess')
     clearData()
@@ -628,8 +625,8 @@ const handleUpload = async () => {
   } catch (error: any) {
     uploadStatus.value = 'exception'
     progressText.value = '保存失败'
-    const errorMessage = error.response?.data?.message || '数据保存失败，请检查网络或联系管理员'
-    ElMessage.error(errorMessage)
+    const apiError = handleApiError(error, '数据保存')
+    showErrorMessage(apiError)
   } finally {
     uploading.value = false
   }

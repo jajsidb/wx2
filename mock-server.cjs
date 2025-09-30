@@ -70,13 +70,15 @@ let nextId = 4;
 // 通用响应格式
 const successResponse = (data, message = '操作成功') => ({
   success: true,
+  code: 0,
   message,
   data,
   timestamp: new Date().toISOString()
 });
 
-const errorResponse = (message = '操作失败', data = null) => ({
+const errorResponse = (message = '操作失败', code = 9999, data = null) => ({
   success: false,
+  code,
   message,
   data,
   timestamp: new Date().toISOString()
@@ -135,7 +137,7 @@ app.put('/api/students/:id', (req, res) => {
   
   const studentIndex = students.findIndex(s => s.id === id);
   if (studentIndex === -1) {
-    return res.status(404).json(errorResponse('学生不存在'));
+    return res.status(404).json(errorResponse('学生不存在', 4004));
   }
   
   students[studentIndex] = { ...students[studentIndex], ...updateData };
@@ -148,7 +150,7 @@ app.delete('/api/students/:id', (req, res) => {
   const studentIndex = students.findIndex(s => s.id === id);
   
   if (studentIndex === -1) {
-    return res.status(404).json(errorResponse('学生不存在'));
+    return res.status(404).json(errorResponse('学生不存在', 4004));
   }
   
   students.splice(studentIndex, 1);
@@ -160,7 +162,7 @@ app.delete('/api/students/batch', (req, res) => {
   const studentIds = req.body;
   
   if (!Array.isArray(studentIds)) {
-    return res.status(400).json(errorResponse('请提供学生ID数组'));
+    return res.status(400).json(errorResponse('请提供学生ID数组', 4001));
   }
   
   const deletedCount = studentIds.length;
@@ -182,12 +184,12 @@ app.post('/api/students/:id/photo', upload.single('file'), (req, res) => {
   const { id } = req.params;
   
   if (!req.file) {
-    return res.status(400).json(errorResponse('请选择照片文件'));
+    return res.status(400).json(errorResponse('请选择照片文件', 4001));
   }
   
   const studentIndex = students.findIndex(s => s.id === id);
   if (studentIndex === -1) {
-    return res.status(404).json(errorResponse('学生不存在'));
+    return res.status(404).json(errorResponse('学生不存在', 4004));
   }
   
   const photoUrl = `/uploads/${req.file.filename}`;
@@ -201,7 +203,7 @@ app.post('/api/students/import', upload.single('file'), (req, res) => {
   const { batchId } = req.body;
   
   if (!req.file) {
-    return res.status(400).json(errorResponse('请选择Excel文件'));
+    return res.status(400).json(errorResponse('请选择Excel文件', 4001));
   }
   
   // 模拟Excel解析和导入
@@ -241,7 +243,7 @@ app.post('/api/students/batch-create', (req, res) => {
   const { students: studentsData, batchId } = req.body;
   
   if (!Array.isArray(studentsData)) {
-    return res.status(400).json(errorResponse('请提供学生数据数组'));
+    return res.status(400).json(errorResponse('请提供学生数据数组', 4001));
   }
   
   const newStudents = studentsData.map(studentData => ({
@@ -262,7 +264,7 @@ app.post('/api/cards/generate/:studentId', (req, res) => {
   const student = students.find(s => s.id === studentId);
   
   if (!student) {
-    return res.status(404).json(errorResponse('学生不存在'));
+    return res.status(404).json(errorResponse('学生不存在', 4004));
   }
   
   // 模拟信息卡生成
@@ -281,7 +283,7 @@ app.post('/api/cards/generate/batch', (req, res) => {
   const { studentIds } = req.body;
   
   if (!Array.isArray(studentIds)) {
-    return res.status(400).json(errorResponse('请提供学生ID数组'));
+    return res.status(400).json(errorResponse('请提供学生ID数组', 4001));
   }
   
   const taskId = `task-${Date.now()}`;
@@ -307,18 +309,129 @@ app.get('/api/system/statistics', (req, res) => {
 });
 
 // 13. 获取任务进度
-app.get('/api/tasks/:taskId/progress', (req, res) => {
+app.get('/api/cards/task/:taskId/progress', (req, res) => {
   const { taskId } = req.params;
   
   const progress = {
     taskId,
     status: 'completed',
     progress: 100,
+    total: 4,
+    completed: 4,
     message: '任务已完成',
     completedAt: new Date().toISOString()
   };
   
   res.json(successResponse(progress, '获取任务进度成功'));
+});
+
+// 14. 获取单个学生信息
+app.get('/api/students/:id', (req, res) => {
+  const { id } = req.params;
+  const student = students.find(s => s.id === id);
+  
+  if (!student) {
+    return res.status(404).json(errorResponse('学生不存在', 4004));
+  }
+  
+  res.json(successResponse(student, '获取学生信息成功'));
+});
+
+// 15. 下载信息卡
+app.get('/api/cards/download/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  
+  // 模拟返回PDF文件
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="card-${taskId}.pdf"`);
+  res.send(Buffer.from('Mock PDF content'));
+});
+
+// 模板管理接口
+const templates = [
+  {
+    id: 1,
+    templateName: '默认模板',
+    templatePath: '/templates/default.png',
+    width: 800,
+    height: 600,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 2,
+    templateName: '简约模板',
+    templatePath: '/templates/simple.png',
+    width: 600,
+    height: 400,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+// 16. 获取模板列表
+app.get('/api/templates', (req, res) => {
+  const { page = 0, size = 20, isActive } = req.query;
+  
+  let filteredTemplates = templates;
+  if (isActive !== undefined) {
+    filteredTemplates = templates.filter(t => t.isActive === (isActive === 'true'));
+  }
+  
+  const startIndex = parseInt(page) * parseInt(size);
+  const endIndex = startIndex + parseInt(size);
+  const paginatedTemplates = filteredTemplates.slice(startIndex, endIndex);
+  
+  const response = {
+    content: paginatedTemplates,
+    totalElements: filteredTemplates.length,
+    totalPages: Math.ceil(filteredTemplates.length / parseInt(size)),
+    size: parseInt(size),
+    number: parseInt(page)
+  };
+  
+  res.json(successResponse(response, '获取模板列表成功'));
+});
+
+// 17. 获取单个模板
+app.get('/api/templates/:id', (req, res) => {
+  const { id } = req.params;
+  const template = templates.find(t => t.id === parseInt(id));
+  
+  if (!template) {
+    return res.status(404).json(errorResponse('模板不存在', 4004));
+  }
+  
+  res.json(successResponse(template, '获取模板信息成功'));
+});
+
+// 18. 获取激活的模板列表
+app.get('/api/templates/active', (req, res) => {
+  const activeTemplates = templates.filter(t => t.isActive);
+  res.json(successResponse(activeTemplates, '获取激活模板成功'));
+});
+
+// 19. 获取默认模板
+app.get('/api/templates/default', (req, res) => {
+  const defaultTemplate = templates.find(t => t.id === 1);
+  res.json(successResponse(defaultTemplate, '获取默认模板成功'));
+});
+
+// 20. 获取系统状态
+app.get('/api/system/status', (req, res) => {
+  const status = {
+    version: '1.0.0',
+    status: 'running',
+    uptime: '2 days, 3 hours, 45 minutes',
+    database: 'connected',
+    diskSpace: {
+      total: '100GB',
+      used: '25GB',
+      free: '75GB'
+    }
+  };
+  
+  res.json(successResponse(status, '获取系统状态成功'));
 });
 
 // 静态文件服务
@@ -331,11 +444,21 @@ app.listen(PORT, () => {
   console.log(`📊 Available endpoints:`);
   console.log(`   GET    /api/students - 获取学生列表`);
   console.log(`   POST   /api/students - 创建学生`);
+  console.log(`   GET    /api/students/:id - 获取单个学生`);
   console.log(`   PUT    /api/students/:id - 更新学生`);
   console.log(`   DELETE /api/students/:id - 删除学生`);
   console.log(`   DELETE /api/students/batch - 批量删除学生`);
+  console.log(`   GET    /api/students/batch/:batchId - 根据批次获取学生`);
   console.log(`   POST   /api/students/import - 导入Excel`);
   console.log(`   POST   /api/students/:id/photo - 上传照片`);
+  console.log(`   POST   /api/cards/generate/:id - 生成单个信息卡`);
+  console.log(`   POST   /api/cards/generate/batch - 批量生成信息卡`);
+  console.log(`   GET    /api/cards/task/:taskId/progress - 获取任务进度`);
+  console.log(`   GET    /api/cards/download/:taskId - 下载信息卡`);
+  console.log(`   GET    /api/templates - 获取模板列表`);
+  console.log(`   GET    /api/templates/:id - 获取单个模板`);
+  console.log(`   GET    /api/templates/active - 获取激活模板`);
+  console.log(`   GET    /api/templates/default - 获取默认模板`);
   console.log(`   GET    /api/system/statistics - 系统统计`);
-  console.log(`   POST   /api/cards/generate/:id - 生成信息卡`);
+  console.log(`   GET    /api/system/status - 系统状态`);
 });

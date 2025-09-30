@@ -42,6 +42,14 @@
             >
               刷新数据
             </el-button>
+            <el-button 
+              type="primary" 
+              :icon="Setting" 
+              @click="showTemplateDialog = true"
+              size="large"
+            >
+              模板管理
+            </el-button>
           </el-button-group>
         </div>
       </div>
@@ -81,6 +89,17 @@
       />
     </el-dialog>
 
+    <!-- 模板管理对话框 -->
+    <el-dialog
+      v-model="showTemplateDialog"
+      title="模板管理"
+      width="90%"
+      :close-on-click-modal="false"
+      class="template-dialog"
+    >
+      <TemplateManagement />
+    </el-dialog>
+
     <!-- 数据统计面板 -->
     <div class="stats-panel" v-if="excelData.length > 0">
       <el-card class="stats-card" shadow="hover">
@@ -107,6 +126,22 @@
       </el-card>
     </div>
 
+    <!-- 进度跟踪对话框 -->
+    <el-dialog
+      v-model="showProgressDialog"
+      title="批量生成进度"
+      width="600px"
+      :close-on-click-modal="false"
+      class="progress-dialog"
+    >
+      <ProgressTracker 
+        :task-id="currentTaskId"
+        @task-completed="handleTaskCompleted"
+        @task-failed="handleTaskFailed"
+        @task-stopped="handleTaskStopped"
+      />
+    </el-dialog>
+
     <!-- 全局加载状态 -->
     <el-loading 
       v-loading="globalLoading"
@@ -119,11 +154,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
-import { Picture, Upload, DataAnalysis, Refresh } from '@element-plus/icons-vue'
+import { Picture, Upload, DataAnalysis, Refresh, Setting } from '@element-plus/icons-vue'
 import ExcelUpload from './components/ExcelUpload.vue'
 import ImageDisplay from './components/ImageDisplay.vue'
 import MainImageDisplay from './components/MainImageDisplay.vue'
+import TemplateManagement from './components/TemplateManagement.vue'
+import ProgressTracker from './components/ProgressTracker.vue'
 import { getStudents, getSystemStatistics, generateCardsBatch } from './api'
+import { handleApiError, showErrorMessage, showSuccessMessage, showWarningMessage, ApiError } from './utils/errorHandler'
 
 // 学生数据接口定义
 interface StudentData {
@@ -140,6 +178,9 @@ const mainImageDisplayRef = ref()
 const students = ref<any[]>([])
 const excelData = ref<StudentData[]>([])
 const showUploadDialog = ref(false)
+const showTemplateDialog = ref(false)
+const showProgressDialog = ref(false)
+const currentTaskId = ref<string>('')
 const globalLoading = ref(false)
 const loadingText = ref('加载中...')
 const textOverlayCount = ref(0)
@@ -166,16 +207,14 @@ const handleDataParsed = async (data: StudentData[]) => {
       await mainImageDisplayRef.value.updateTextOverlays(data)
     }
     
-    ElNotification({
-      title: '数据处理完成',
-      message: `成功解析${data.length}条Excel数据，并生成文字叠加`,
-      type: 'success',
-      duration: 3000
+    showSuccessMessage(`成功解析${data.length}条Excel数据，并生成文字叠加`, {
+      type: 'notification',
+      title: '数据处理完成'
     })
     
   } catch (error: any) {
-    console.error('处理Excel数据失败:', error)
-    ElMessage.error('处理Excel数据失败: ' + (error.message || '未知错误'))
+    const apiError = handleApiError(error, 'Excel数据处理')
+    showErrorMessage(apiError, { showDetail: true, type: 'notification' })
   } finally {
     globalLoading.value = false
   }
@@ -185,11 +224,9 @@ const handleDataParsed = async (data: StudentData[]) => {
 const handleUploadSuccess = async (response: any) => {
   console.log('上传成功:', response)
   
-  ElNotification({
-    title: '上传成功',
-    message: '数据已成功上传到服务器',
-    type: 'success',
-    duration: 3000
+  showSuccessMessage('数据已成功上传到服务器', {
+    type: 'notification',
+    title: '上传成功'
   })
   
   // 关闭上传对话框
@@ -224,8 +261,19 @@ const refreshStudents = async () => {
       throw new Error(response.data.message || '获取学生列表失败')
     }
   } catch (error: any) {
-    console.error('获取学生列表失败:', error)
-    ElMessage.error('获取学生列表失败: ' + (error.response?.data?.message || error.message || '网络错误'))
+    const apiError = handleApiError(error, '获取学生列表')
+    showErrorMessage(apiError, { showDetail: true })
+    
+    // 如果是网络错误，提供重试选项
+    if (apiError.code === 9001) {
+      ElNotification({
+        title: '网络连接失败',
+        message: '无法连接到服务器，请检查网络或稍后重试',
+        type: 'error',
+        duration: 0,
+        showClose: true
+      })
+    }
   } finally {
     globalLoading.value = false
   }
@@ -271,21 +319,22 @@ const getSystemStats = async () => {
   
   try {
     const response = await getSystemStatistics()
+    const stats = response.data.data
     
-    if (response.data.success) {
-      const stats = response.data.data
-      ElNotification({
-        title: '系统统计',
-        message: `总学生数: ${stats.totalStudents}, 总批次数: ${stats.totalBatches}, 已生成信息卡: ${stats.totalCards}`,
-        type: 'info',
-        duration: 5000
-      })
-    } else {
-      throw new Error(response.data.message || '获取统计失败')
-    }
+    // 更新统计数据
+    textOverlayCount.value = stats.totalCards || 0
+    
+    ElNotification({
+      title: '系统统计',
+      message: `总学生数: ${stats.totalStudents}, 总批次数: ${stats.totalBatches}, 已生成信息卡: ${stats.totalCards}`,
+      type: 'info',
+      duration: 5000
+    })
+    
+    console.log('获取系统统计成功:', stats)
   } catch (error: any) {
-    console.error('获取系统统计失败:', error)
-    ElMessage.error('获取系统统计失败: ' + (error.message || '未知错误'))
+    const apiError = handleApiError(error, '获取系统统计')
+    showErrorMessage(apiError)
   } finally {
     globalLoading.value = false
   }
@@ -294,33 +343,57 @@ const getSystemStats = async () => {
 // 批量生成信息卡
 const generateAllCards = async () => {
   if (students.value.length === 0) {
-    ElMessage.warning('没有学生数据，无法生成信息卡')
+    showWarningMessage('没有学生数据，无法生成信息卡')
     return
   }
   
   globalLoading.value = true
-  loadingText.value = '正在批量生成信息卡...'
+  loadingText.value = '正在启动批量生成任务...'
   
   try {
     const studentIds = students.value.map(student => student.id)
     const response = await generateCardsBatch(studentIds)
     
-    if (response.data.success) {
-      ElNotification({
-        title: '批量生成成功',
-        message: `成功生成${studentIds.length}张信息卡`,
-        type: 'success',
-        duration: 3000
-      })
-    } else {
-      throw new Error(response.data.message || '批量生成失败')
-    }
+    const taskId = response.data.data.taskId
+    
+    // 显示进度跟踪对话框
+    showProgressDialog.value = true
+    currentTaskId.value = taskId
+    
+    showSuccessMessage(`批量生成任务已启动，任务ID: ${taskId}`, {
+      type: 'notification',
+      title: '任务已启动'
+    })
   } catch (error: any) {
-    console.error('批量生成信息卡失败:', error)
-    ElMessage.error('批量生成信息卡失败: ' + (error.message || '未知错误'))
+    const apiError = handleApiError(error, '批量生成信息卡')
+    showErrorMessage(apiError, { showDetail: true, type: 'notification' })
   } finally {
     globalLoading.value = false
   }
+}
+
+// 处理任务完成
+const handleTaskCompleted = (result: any) => {
+  console.log('批量生成任务完成:', result)
+  showProgressDialog.value = false
+  currentTaskId.value = ''
+  
+  // 刷新学生列表
+  refreshStudents()
+}
+
+// 处理任务失败
+const handleTaskFailed = (error: string) => {
+  console.error('批量生成任务失败:', error)
+  showProgressDialog.value = false
+  currentTaskId.value = ''
+}
+
+// 处理任务停止
+const handleTaskStopped = () => {
+  console.log('批量生成任务已停止')
+  showProgressDialog.value = false
+  currentTaskId.value = ''
 }
 
 // 刷新所有数据
@@ -329,17 +402,15 @@ const refreshAllData = async () => {
   loadingText.value = '正在刷新所有数据...'
   
   try {
-    await refreshStudents()
+    await Promise.all([
+      refreshStudents(),
+      getStats()
+    ])
     
-    // 如果有Excel数据，重新处理文字叠加
-    if (excelData.value.length > 0 && mainImageDisplayRef.value) {
-      await mainImageDisplayRef.value.updateTextOverlays(excelData.value)
-    }
-    
-    ElMessage.success('数据刷新完成')
+    showSuccessMessage('所有数据刷新完成')
   } catch (error: any) {
-    console.error('刷新数据失败:', error)
-    ElMessage.error('刷新数据失败: ' + (error.message || '未知错误'))
+    const apiError = handleApiError(error, '刷新数据')
+    showErrorMessage(apiError)
   } finally {
     globalLoading.value = false
   }

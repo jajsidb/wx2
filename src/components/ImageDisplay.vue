@@ -133,6 +133,7 @@ import { ref, onMounted } from 'vue';
 import { ElCard, ElTable, ElTableColumn, ElButton, ElIcon, ElPagination, ElMessage, ElMessageBox, ElImage, ElUpload, ElInput, ElSelect, ElOption } from 'element-plus';
 import { User, Refresh, Search, Upload, Picture, Edit, Delete } from '@element-plus/icons-vue';
 import { getStudents, uploadPhoto, deleteStudent, getStudentsByBatch, generateCardSingle, updateStudent, deleteStudentsBatch } from '../api';
+import { handleApiError, showErrorMessage, showSuccessMessage, showWarningMessage } from '../utils/errorHandler';
 
 interface Student {
   id: string;
@@ -175,27 +176,22 @@ const fetchStudents = async () => {
       });
     }
     
-    // 适配新的API响应格式
-    if (response.data.success) {
-      if (selectedBatchId.value) {
-        // 批次查询返回的是数组
-        students.value = response.data.data || [];
-        total.value = students.value.length;
-      } else {
-        // 分页查询返回的是分页对象
-        students.value = response.data.data.content || [];
-        total.value = response.data.data.totalElements || 0;
-      }
-      
-      // 收集批次ID用于筛选
-      const batchIds = [...new Set(students.value.map(s => s.batchId).filter(Boolean))];
-      availableBatches.value = batchIds;
+    if (selectedBatchId.value) {
+      // 批次查询返回的是数组
+      students.value = response.data.data || [];
+      total.value = students.value.length;
     } else {
-      throw new Error(response.data.message || '获取学生列表失败');
+      // 分页查询返回的是分页对象
+      students.value = response.data.data.content || [];
+      total.value = response.data.data.totalElements || 0;
     }
-  } catch (error) {
-    console.error('获取学生列表失败:', error);
-    ElMessage.error('获取学生列表失败');
+    
+    // 收集批次ID用于筛选
+    const batchIds = [...new Set(students.value.map(s => s.batchId).filter(Boolean))];
+    availableBatches.value = batchIds;
+  } catch (error: any) {
+    const apiError = handleApiError(error, '获取学生列表');
+    showErrorMessage(apiError);
   } finally {
     loading.value = false;
   }
@@ -213,14 +209,14 @@ const handlePhotoUpload = async (studentId: string, file: File) => {
     
     // 适配新的API响应格式
     if (response.data.success) {
-      ElMessage.success('照片上传成功');
+      showSuccessMessage('照片上传成功');
       fetchStudents(); // Refresh the list
     } else {
       throw new Error(response.data.message || '照片上传失败');
     }
   } catch (error: any) {
-    console.error('照片上传失败:', error);
-    ElMessage.error('照片上传失败: ' + (error.response?.data?.message || error.message || '网络错误'));
+    const apiError = handleApiError(error, '上传照片');
+    showErrorMessage(apiError);
   }
 };
 
@@ -235,15 +231,15 @@ const handleDelete = async (studentId: string) => {
     
     // 适配新的API响应格式
     if (response.data.success) {
-      ElMessage.success('学生信息删除成功');
+      showSuccessMessage('学生信息删除成功');
       fetchStudents(); // Refresh the list
     } else {
       throw new Error(response.data.message || '删除失败');
     }
   } catch (error: any) {
     if (error.message !== 'cancel') {
-      console.error('删除学生失败:', error);
-      ElMessage.error('删除失败: ' + (error.response?.data?.message || error.message || '网络错误'));
+      const apiError = handleApiError(error, '删除学生');
+      showErrorMessage(apiError);
     }
   }
 };
@@ -270,15 +266,18 @@ const refreshData = () => {
 const generateSingleCard = async (studentId: string) => {
   try {
     const response = await generateCardSingle(studentId);
+    showSuccessMessage('信息卡生成成功!');
     
-    if (response.data.success) {
-      ElMessage.success('信息卡生成成功');
-    } else {
-      throw new Error(response.data.message || '生成信息卡失败');
+    // 如果返回了下载链接，可以自动下载
+    if (response.data.data?.downloadUrl) {
+      const link = document.createElement('a')
+      link.href = response.data.data.downloadUrl
+      link.download = `信息卡.png`
+      link.click()
     }
   } catch (error: any) {
-    console.error('生成信息卡失败:', error);
-    ElMessage.error('生成信息卡失败: ' + (error.response?.data?.message || error.message || '网络错误'));
+    const apiError = handleApiError(error, '生成信息卡');
+    showErrorMessage(apiError);
   }
 };
 
@@ -308,15 +307,15 @@ const editStudent = async (student: Student) => {
     const response = await updateStudent(student.id, updatedData);
     
     if (response.data.success) {
-      ElMessage.success('学生信息更新成功');
+      showSuccessMessage('学生信息更新成功');
       fetchStudents(); // 刷新列表
     } else {
       throw new Error(response.data.message || '更新失败');
     }
   } catch (error: any) {
     if (error.message !== 'cancel') {
-      console.error('更新学生信息失败:', error);
-      ElMessage.error('更新失败: ' + (error.response?.data?.message || error.message || '网络错误'));
+      const apiError = handleApiError(error, '更新学生信息');
+      showErrorMessage(apiError);
     }
   }
 };
