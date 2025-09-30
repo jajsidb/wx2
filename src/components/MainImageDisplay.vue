@@ -79,6 +79,52 @@
       <!-- 控制工具栏 -->
       <div class="control-toolbar" :class="{ 'collapsed': toolbarCollapsed }">
         <div class="toolbar-content" v-show="!toolbarCollapsed">
+          <!-- 分页控制区域 -->
+          <div class="pagination-controls" v-if="props.excelData && props.excelData.length > 0">
+            <div class="pagination-settings">
+              <el-tooltip content="设置每页显示条目数量" placement="top">
+                <div class="items-per-page-control">
+                  <span class="control-label">每页显示：</span>
+                  <el-select v-model="itemsPerPage" size="small" style="width: 80px" @change="changeItemsPerPage">
+                    <el-option label="2" :value="2" />
+                    <el-option label="4" :value="4" />
+                    <el-option label="6" :value="6" />
+                    <el-option label="8" :value="8" />
+                    <el-option label="全部" :value="-1" />
+                  </el-select>
+                  <span class="control-label">条</span>
+                </div>
+              </el-tooltip>
+            </div>
+            
+            <div class="pagination-navigation" v-if="totalPages > 1">
+              <el-button-group>
+                <el-tooltip content="上一页" placement="top">
+                  <el-button 
+                    :icon="ArrowLeft" 
+                    @click="goToPrevPage" 
+                    size="small" 
+                    :disabled="!hasPrevPage"
+                  />
+                </el-tooltip>
+                <el-tooltip content="下一页" placement="top">
+                  <el-button 
+                    :icon="ArrowRight" 
+                    @click="goToNextPage" 
+                    size="small" 
+                    :disabled="!hasNextPage"
+                  />
+                </el-tooltip>
+              </el-button-group>
+              
+              <div class="page-info">
+                <span>{{ pageInfo.current }}/{{ pageInfo.total }}</span>
+                <span class="items-info">({{ pageInfo.itemsStart }}-{{ pageInfo.itemsEnd }}/{{ pageInfo.totalItems }})</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 原有工具按钮 -->
           <el-button-group class="toolbar-group">
             <el-tooltip content="添加文字" placement="top">
               <el-button :icon="Plus" @click="addTextOverlay" size="small" />
@@ -234,6 +280,16 @@ const emit = defineEmits<{
   export: [dataUrl: string]
 }>()
 
+// 图片尺寸配置 (210mm × 150mm at 300 DPI)
+const PHOTOSHOP_WIDTH_MM = 210
+const PHOTOSHOP_HEIGHT_MM = 150
+const DPI = 300
+const MM_TO_INCH = 25.4
+
+// 计算Photoshop中的像素尺寸
+const PHOTOSHOP_WIDTH_PX = Math.round((PHOTOSHOP_WIDTH_MM / MM_TO_INCH) * DPI) // 2480px
+const PHOTOSHOP_HEIGHT_PX = Math.round((PHOTOSHOP_HEIGHT_MM / MM_TO_INCH) * DPI) // 1772px
+
 // 响应式数据
 const containerRef = ref<HTMLElement>()
 const imageWrapperRef = ref<HTMLElement>()
@@ -242,16 +298,26 @@ const canvasRef = ref<HTMLCanvasElement>()
 const textInputRefs = ref<HTMLInputElement[]>([])
 
 // 图片相关状态
-const imageWidth = ref(0)
-const imageHeight = ref(0)
+const imageWidth = ref(PHOTOSHOP_WIDTH_PX)
+const imageHeight = ref(PHOTOSHOP_HEIGHT_PX)
 const imageLoaded = ref(false)
 const imageError = ref(false)
 
 // Canvas相关状态
-const canvasWidth = ref(800)
-const canvasHeight = ref(600)
+const canvasWidth = ref(PHOTOSHOP_WIDTH_PX)
+const canvasHeight = ref(PHOTOSHOP_HEIGHT_PX)
 const showCanvas = ref(false)
 const canvasContext = shallowRef<CanvasRenderingContext2D | null>(null)
+
+// 显示比例计算
+const displayScale = ref(1)
+const webDisplayWidth = ref(800) // 网页显示宽度
+const webDisplayHeight = ref(600) // 网页显示高度
+
+// 分页相关状态
+const itemsPerPage = ref(4) // 每页显示的数据条目数量，默认4条
+const currentPage = ref(0) // 当前页码，从0开始
+const totalPages = ref(0) // 总页数
 
 // 文字覆盖层状态
 const textOverlays = ref<TextOverlay[]>([])
@@ -288,18 +354,87 @@ const selectedTextItem = computed(() => {
 })
 
 const gridLines = computed(() => ({
-  vertical: 20,
-  horizontal: 15
+  vertical: 10,
+  horizontal: 8
 }))
+
+// 分页相关计算属性
+const currentPageData = computed(() => {
+  if (!props.excelData || props.excelData.length === 0) return []
+  
+  if (itemsPerPage.value === -1) {
+    // 显示全部数据
+    return props.excelData
+  }
+  
+  const startIndex = currentPage.value * itemsPerPage.value
+  const endIndex = startIndex + itemsPerPage.value
+  return props.excelData.slice(startIndex, endIndex)
+})
+
+const hasPrevPage = computed(() => currentPage.value > 0)
+const hasNextPage = computed(() => currentPage.value < totalPages.value - 1)
+
+const pageInfo = computed(() => ({
+  current: currentPage.value + 1,
+  total: totalPages.value,
+  itemsStart: currentPage.value * itemsPerPage.value + 1,
+  itemsEnd: Math.min((currentPage.value + 1) * itemsPerPage.value, props.excelData?.length || 0),
+  totalItems: props.excelData?.length || 0
+}))
+
+// 分页控制函数
+const goToPrevPage = () => {
+  if (hasPrevPage.value) {
+    currentPage.value--
+    addExcelDataOverlays() // 重新生成文字覆盖层
+  }
+}
+
+const goToNextPage = () => {
+  if (hasNextPage.value) {
+    currentPage.value++
+    addExcelDataOverlays() // 重新生成文字覆盖层
+  }
+}
+
+const changeItemsPerPage = (newValue: number) => {
+  itemsPerPage.value = newValue
+  currentPage.value = 0 // 重置到第一页
+  
+  // 重新计算总页数
+  if (newValue === -1) {
+    totalPages.value = 1 // 显示全部时只有一页
+  } else {
+    totalPages.value = Math.ceil((props.excelData?.length || 0) / newValue)
+  }
+  
+  addExcelDataOverlays() // 重新生成文字覆盖层
+}
 
 // 自定义Hooks
 const useImageDimensions = () => {
   const updateDimensions = () => {
-    if (mainImageRef.value) {
-      imageWidth.value = mainImageRef.value.naturalWidth
-      imageHeight.value = mainImageRef.value.naturalHeight
-      canvasWidth.value = imageWidth.value
-      canvasHeight.value = imageHeight.value
+    if (mainImageRef.value && imageWrapperRef.value) {
+      // 获取实际显示尺寸
+      const rect = imageWrapperRef.value.getBoundingClientRect()
+      webDisplayWidth.value = rect.width
+      webDisplayHeight.value = rect.height
+      
+      // 计算显示比例 (网页显示尺寸 / Photoshop尺寸)
+      const scaleX = webDisplayWidth.value / PHOTOSHOP_WIDTH_PX
+      const scaleY = webDisplayHeight.value / PHOTOSHOP_HEIGHT_PX
+      displayScale.value = Math.min(scaleX, scaleY) // 保持宽高比
+      
+      // 更新图片尺寸为Photoshop标准尺寸
+      imageWidth.value = PHOTOSHOP_WIDTH_PX
+      imageHeight.value = PHOTOSHOP_HEIGHT_PX
+      canvasWidth.value = PHOTOSHOP_WIDTH_PX
+      canvasHeight.value = PHOTOSHOP_HEIGHT_PX
+      
+      console.log(`Photoshop尺寸: ${PHOTOSHOP_WIDTH_PX}×${PHOTOSHOP_HEIGHT_PX}px`)
+      console.log(`网页显示尺寸: ${webDisplayWidth.value}×${webDisplayHeight.value}px`)
+      console.log(`显示比例: ${displayScale.value.toFixed(4)}`)
     }
   }
 
@@ -318,27 +453,58 @@ const useCanvasRendering = () => {
   }
 
   const renderToCanvas = () => {
-    if (!canvasContext.value || !mainImageRef.value) return
+    if (!canvasContext.value || !mainImageRef.value) {
+      console.warn('Canvas上下文或图片未准备好')
+      return
+    }
 
     const ctx = canvasContext.value
     const img = mainImageRef.value
+    const canvas = canvasRef.value
 
-    // 清空画布
-    ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value)
+    // 设置Canvas尺寸为Photoshop标准尺寸
+    if (canvas) {
+      canvas.width = PHOTOSHOP_WIDTH_PX
+      canvas.height = PHOTOSHOP_HEIGHT_PX
+      console.log(`Canvas尺寸设置为: ${PHOTOSHOP_WIDTH_PX}×${PHOTOSHOP_HEIGHT_PX}px`)
+    }
 
-    // 绘制主图片
-    ctx.drawImage(img, 0, 0, canvasWidth.value, canvasHeight.value)
+    // 清空画布并设置白色背景
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, PHOTOSHOP_WIDTH_PX, PHOTOSHOP_HEIGHT_PX)
 
-    // 绘制文字覆盖层
+    // 等待图片完全加载
+    if (img.complete && img.naturalHeight !== 0) {
+      // 绘制主图片
+      ctx.drawImage(img, 0, 0, PHOTOSHOP_WIDTH_PX, PHOTOSHOP_HEIGHT_PX)
+      console.log('主图片绘制完成')
+    } else {
+      console.warn('主图片未完全加载')
+      // 如果图片未加载，绘制占位符
+      ctx.fillStyle = '#f0f0f0'
+      ctx.fillRect(0, 0, PHOTOSHOP_WIDTH_PX, PHOTOSHOP_HEIGHT_PX)
+      ctx.fillStyle = '#666666'
+      ctx.font = '48px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText('图片加载中...', PHOTOSHOP_WIDTH_PX / 2, PHOTOSHOP_HEIGHT_PX / 2)
+    }
+
+    // 绘制文字覆盖层（使用Photoshop坐标）
+    let textCount = 0
     textOverlays.value.forEach(textItem => {
-      if (textItem.content.trim()) {
+      if (textItem.content && textItem.content.trim()) {
         ctx.font = `${textItem.fontSize}px ${textItem.fontFamily}`
         ctx.fillStyle = textItem.color
         ctx.textAlign = 'left'
         ctx.textBaseline = 'top'
+        
+        // 直接使用Photoshop坐标绘制到Canvas
         ctx.fillText(textItem.content, textItem.x, textItem.y)
+        textCount++
       }
     })
+    
+    console.log(`Canvas渲染完成，尺寸: ${PHOTOSHOP_WIDTH_PX}×${PHOTOSHOP_HEIGHT_PX}px，绘制了${textCount}个文字元素`)
   }
 
   return { initCanvas, renderToCanvas }
@@ -371,10 +537,10 @@ const addTextOverlay = () => {
   const newText: TextOverlay = {
     id: `text-${Date.now()}`,
     content: '新文字',
-    x: 100,
-    y: 100,
-    fontSize: 24,
-    fontFamily: 'PingFang SC',
+    x: 300, // Photoshop坐标
+    y: 200, // Photoshop坐标
+    fontSize: 36, // Photoshop字体大小
+    fontFamily: 'SimSun, 宋体, serif', // 默认使用宋体
     color: '#000000',
     editing: false
   }
@@ -385,76 +551,95 @@ const addTextOverlay = () => {
   nextTick(() => {
     editText(selectedTextIndex.value)
   })
+  
+  console.log('添加新文字覆盖层，使用宋体字体')
 }
 
 const addExcelDataOverlays = () => {
   if (!props.excelData || props.excelData.length === 0) return
 
-  const data = props.excelData[0] // 使用第一条数据
-  const overlays: TextOverlay[] = [
-    {
-      id: 'name',
-      content: data.name,
-      x: 400,
-      y: 180,
-      fontSize: 48,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'college',
-      content: data.college,
-      x: 400,
-      y: 250,
-      fontSize: 32,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'className',
-      content: data.className,
-      x: 400,
-      y: 300,
-      fontSize: 32,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'counselor',
-      content: data.counselor,
-      x: 400,
-      y: 350,
-      fontSize: 28,
-      fontFamily: 'PingFang SC',
-      color: '#333333',
-      editing: false
-    },
-    {
-      id: 'dormitory',
-      content: data.dormitoryNumber,
-      x: 400,
-      y: 430,
-      fontSize: 40,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'bed',
-      content: data.bedNumber,
-      x: 400,
-      y: 490,
-      fontSize: 36,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    }
+  // 使用当前页的数据
+  const pageData = currentPageData.value
+  
+  // 清空现有文字覆盖层
+  textOverlays.value = []
+  
+  // 定义画布中心点坐标
+  const centerX = PHOTOSHOP_WIDTH_PX / 2  // 1240px (中心点X坐标)
+  const centerY = PHOTOSHOP_HEIGHT_PX / 2 // 886px (中心点Y坐标)
+  
+  // 定义四组坐标配置，每组包含六个字段的精确位置（统一48号字体）
+  const coordinateGroups = [
+    // 第一组坐标（基准坐标）
+    [
+      { key: 'name', label: '姓名', x: 882, y: 585, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'college', label: '学院', x: 818, y: 675, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'className', label: '班级', x: 774, y: 724, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'counselor', label: '辅导员', x: 876, y: 802, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'dormitoryNumber', label: '寝室号', x: 894, y: 879, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'bedNumber', label: '床位号', x: 932, y: 949, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
+    ],
+    // 第二组坐标（保持Y轴不变，调整X轴）
+    [
+      { key: 'name', label: '姓名', x: 1971, y: 585, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'college', label: '学院', x: 1905, y: 675, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'className', label: '班级', x: 1840, y: 724, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'counselor', label: '辅导员', x: 1971, y: 802, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'dormitoryNumber', label: '寝室号', x: 2001, y: 879, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'bedNumber', label: '床位号', x: 2023, y: 949, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
+    ],
+    // 第三组坐标（保持X轴不变，调整Y轴）
+    [
+      { key: 'name', label: '姓名', x: 882, y: 1102, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'college', label: '学院', x: 818, y: 1174, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'className', label: '班级', x: 774, y: 1241, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'counselor', label: '辅导员', x: 876, y: 1319, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'dormitoryNumber', label: '寝室号', x: 894, y: 1396, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'bedNumber', label: '床位号', x: 932, y: 1466, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
+    ],
+    // 第四组坐标（基于第三组Y轴，调整X轴）
+    [
+      { key: 'name', label: '姓名', x: 1917, y: 1102, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'college', label: '学院', x: 1905, y: 1174, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'className', label: '班级', x: 1840, y: 1241, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'counselor', label: '辅导员', x: 1971, y: 1319, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'dormitoryNumber', label: '寝室号', x: 2001, y: 1396, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+      { key: 'bedNumber', label: '床位号', x: 2003, y: 1466, fontSize: 48, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
+    ]
   ]
-
-  textOverlays.value = overlays
+  
+  // 为当前页的每条数据创建文字覆盖层
+  pageData.forEach((data, dataIndex) => {
+    // 确保数据索引不超过坐标组数量
+    if (dataIndex < coordinateGroups.length) {
+      const currentGroup = coordinateGroups[dataIndex]
+      
+      currentGroup.forEach((config, configIndex) => {
+        const value = data[config.key as keyof typeof data]
+        if (value) {
+          // 确保坐标在画布范围内
+          const clampedX = Math.max(50, Math.min(PHOTOSHOP_WIDTH_PX - 300, config.x))
+          const clampedY = Math.max(50, Math.min(PHOTOSHOP_HEIGHT_PX - 50, config.y))
+          
+          textOverlays.value.push({
+            id: `${config.key}-${dataIndex}-${Date.now()}-${configIndex}`,
+            content: value, // 直接显示原始数据，不添加标签前缀
+            x: clampedX,
+            y: clampedY,
+            fontSize: config.fontSize,
+            fontFamily: config.fontFamily,
+            color: config.color,
+            editing: false
+          })
+          
+          console.log(`第${dataIndex + 1}组 ${config.label}: "${value}" -> 坐标(${clampedX}, ${clampedY})`)
+        }
+      })
+    }
+  })
+  
+  console.log(`已添加 ${textOverlays.value.length} 个文字覆盖层，当前页显示 ${pageData.length} 条数据`)
+  console.log(`画布尺寸: ${PHOTOSHOP_WIDTH_PX}×${PHOTOSHOP_HEIGHT_PX}px，中心点: (${centerX}, ${centerY})`)
 }
 
 const selectText = (index: number) => {
@@ -497,17 +682,79 @@ const cancelEdit = (index: number) => {
   }
 }
 
+// 文字位置转换函数
+const convertPhotoshopToWebPosition = (psX: number, psY: number) => {
+  return {
+    x: psX * displayScale.value,
+    y: psY * displayScale.value
+  }
+}
+
+const convertWebToPhotoshopPosition = (webX: number, webY: number) => {
+  return {
+    x: webX / displayScale.value,
+    y: webY / displayScale.value
+  }
+}
+
+// 中心点坐标系转换函数
+const convertCenterToAbsolute = (centerOffsetX: number, centerOffsetY: number) => {
+  const centerX = PHOTOSHOP_WIDTH_PX / 2
+  const centerY = PHOTOSHOP_HEIGHT_PX / 2
+  return {
+    x: centerX + centerOffsetX,
+    y: centerY + centerOffsetY
+  }
+}
+
+const convertAbsoluteToCenter = (absoluteX: number, absoluteY: number) => {
+  const centerX = PHOTOSHOP_WIDTH_PX / 2
+  const centerY = PHOTOSHOP_HEIGHT_PX / 2
+  return {
+    offsetX: absoluteX - centerX,
+    offsetY: absoluteY - centerY
+  }
+}
+
+// 获取字段在中心坐标系下的标准位置
+const getFieldCenterPosition = (fieldKey: string, dataIndex: number = 0) => {
+  const fieldPositions = {
+    'name': { offsetX: -400, offsetY: -300 },
+    'college': { offsetX: -400, offsetY: -200 },
+    'className': { offsetX: -400, offsetY: -100 },
+    'counselor': { offsetX: -400, offsetY: 0 },
+    'dormitoryNumber': { offsetX: -400, offsetY: 100 },
+    'bedNumber': { offsetX: -400, offsetY: 200 }
+  }
+  
+  const basePosition = fieldPositions[fieldKey as keyof typeof fieldPositions]
+  if (!basePosition) return { offsetX: 0, offsetY: 0 }
+  
+  // 添加数据索引的垂直偏移
+  const dataVerticalOffset = dataIndex * 180
+  
+  return {
+    offsetX: basePosition.offsetX,
+    offsetY: basePosition.offsetY + dataVerticalOffset
+  }
+}
+
+// 获取文字样式（用于显示）
 const getTextStyle = (textItem: TextOverlay) => {
+  const webPos = convertPhotoshopToWebPosition(textItem.x, textItem.y)
+  const webFontSize = textItem.fontSize * displayScale.value
+  
   return {
     position: 'absolute',
-    left: `${textItem.x}px`,
-    top: `${textItem.y}px`,
-    fontSize: `${textItem.fontSize}px`,
+    left: `${webPos.x}px`,
+    top: `${webPos.y}px`,
+    fontSize: `${webFontSize}px`,
     fontFamily: textItem.fontFamily,
     color: textItem.color,
     cursor: textItem.editing ? 'text' : 'move',
     userSelect: textItem.editing ? 'text' : 'none',
     whiteSpace: 'nowrap',
+    transform: 'translate(0, 0)',
     zIndex: textItem.editing ? 1000 : 100
   }
 }
@@ -523,18 +770,67 @@ const startDrag = (index: number, handle: string, event: MouseEvent) => {
   document.addEventListener('mouseup', onDragEnd)
 }
 
+// 处理文字点击事件
+const handleTextClick = (textItem: TextOverlay, event: MouseEvent) => {
+  event.stopPropagation()
+  
+  // 将网页坐标转换为Photoshop坐标进行编辑
+  const rect = imageWrapperRef.value?.getBoundingClientRect()
+  if (rect) {
+    const webX = event.clientX - rect.left
+    const webY = event.clientY - rect.top
+    const psPos = convertWebToPhotoshopPosition(webX, webY)
+    
+    console.log(`点击位置 - 网页坐标: (${webX}, ${webY}), Photoshop坐标: (${psPos.x.toFixed(2)}, ${psPos.y.toFixed(2)})`)
+  }
+  
+  // 设置编辑状态
+  textOverlays.value.forEach(item => {
+    item.editing = item.id === textItem.id
+  })
+  
+  nextTick(() => {
+    const input = textInputRefs.value.find(ref => ref?.dataset.id === textItem.id.toString())
+    if (input) {
+      input.focus()
+      input.select()
+    }
+  })
+}
+
 const onDragMove = (event: MouseEvent) => {
   if (!isDragging.value || dragTextIndex.value === -1) return
   
+  // 计算鼠标移动的像素差值
   const deltaX = event.clientX - dragStartPos.x
   const deltaY = event.clientY - dragStartPos.y
   
-  const textItem = textOverlays.value[dragTextIndex.value]
-  textItem.x = Math.max(0, Math.min(imageWidth.value - 100, textItem.x + deltaX))
-  textItem.y = Math.max(0, Math.min(imageHeight.value - 50, textItem.y + deltaY))
+  // 将像素差值转换为Photoshop坐标系的差值
+  const psDeltaX = deltaX / displayScale.value
+  const psDeltaY = deltaY / displayScale.value
   
+  const textItem = textOverlays.value[dragTextIndex.value]
+  
+  // 计算新的绝对坐标
+  const newX = textItem.x + psDeltaX
+  const newY = textItem.y + psDeltaY
+  
+  // 确保坐标在画布范围内（考虑文本宽度和高度）
+  const minX = 50
+  const maxX = PHOTOSHOP_WIDTH_PX - 300 // 预留文本宽度空间
+  const minY = 50
+  const maxY = PHOTOSHOP_HEIGHT_PX - 50 // 预留文本高度空间
+  
+  textItem.x = Math.max(minX, Math.min(maxX, newX))
+  textItem.y = Math.max(minY, Math.min(maxY, newY))
+  
+  // 更新拖拽起始位置
   dragStartPos.x = event.clientX
   dragStartPos.y = event.clientY
+  
+  // 输出调试信息（显示中心坐标系偏移）
+  const centerOffset = convertAbsoluteToCenter(textItem.x, textItem.y)
+  console.log(`拖拽更新: 绝对坐标(${textItem.x.toFixed(1)}, ${textItem.y.toFixed(1)}) = 中心偏移(${centerOffset.offsetX.toFixed(1)}, ${centerOffset.offsetY.toFixed(1)})`)
 }
 
 const onDragEnd = () => {
@@ -572,21 +868,44 @@ const exportImage = async () => {
   try {
     showCanvas.value = true
     await nextTick()
-    renderToCanvas()
     
+    // 确保Canvas已初始化
+    if (!canvasRef.value || !canvasContext.value) {
+      initCanvas()
+      await nextTick()
+    }
+    
+    // 渲染到Canvas
+    renderToCanvas()
+    await nextTick()
+    
+    // 生成高质量PNG图片
     const dataUrl = canvasRef.value?.toDataURL('image/png', 1.0)
-    if (dataUrl) {
+    if (dataUrl && dataUrl !== 'data:,') {
       emit('export', dataUrl)
+      
+      // 验证数据URL格式
+      if (!dataUrl.startsWith('data:image/png;base64,')) {
+        throw new Error('生成的图片格式不正确')
+      }
       
       // 创建下载链接
       const link = document.createElement('a')
-      link.download = `寝室门牌_${Date.now()}.png`
+      link.download = `寝室门牌_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`
       link.href = dataUrl
+      
+      // 添加到DOM并触发下载
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
       
       showSuccessMessage('图片导出成功')
+      console.log('导出成功，图片尺寸:', canvasRef.value?.width, 'x', canvasRef.value?.height)
+    } else {
+      throw new Error('无法生成图片数据')
     }
   } catch (error: any) {
+    console.error('导出图片失败:', error)
     const apiError = handleApiError(error, '导出图片')
     showErrorMessage(apiError)
   } finally {
@@ -601,72 +920,8 @@ const updateTextOverlays = async (data: any[]) => {
     return
   }
 
-  // 使用第一条数据更新文字叠加
-  const studentData = data[0]
-  const overlays: TextOverlay[] = [
-    {
-      id: 'name',
-      content: studentData.name || '',
-      x: 400,
-      y: 180,
-      fontSize: 48,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'college',
-      content: studentData.college || '',
-      x: 400,
-      y: 250,
-      fontSize: 32,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'className',
-      content: studentData.className || '',
-      x: 400,
-      y: 300,
-      fontSize: 32,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'counselor',
-      content: studentData.counselor || '',
-      x: 400,
-      y: 350,
-      fontSize: 28,
-      fontFamily: 'PingFang SC',
-      color: '#333333',
-      editing: false
-    },
-    {
-      id: 'dormitory',
-      content: studentData.dormitoryNumber || '',
-      x: 400,
-      y: 430,
-      fontSize: 40,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    },
-    {
-      id: 'bed',
-      content: studentData.bedNumber || '',
-      x: 400,
-      y: 490,
-      fontSize: 36,
-      fontFamily: 'PingFang SC',
-      color: '#1a1a1a',
-      editing: false
-    }
-  ]
-
-  textOverlays.value = overlays
+  // 直接调用addExcelDataOverlays来处理所有数据和分页逻辑
+  addExcelDataOverlays()
   
   // 等待DOM更新
   await nextTick()
@@ -678,9 +933,25 @@ const updateTextOverlays = async (data: any[]) => {
 // 监听器
 watch(() => props.excelData, (newData) => {
   if (newData && newData.length > 0) {
+    // 重新计算总页数
+    if (itemsPerPage.value === -1) {
+      totalPages.value = 1
+    } else {
+      totalPages.value = Math.ceil(newData.length / itemsPerPage.value)
+    }
+    
+    // 重置到第一页
+    currentPage.value = 0
+    
+    // 添加Excel数据覆盖层
     addExcelDataOverlays()
+  } else {
+    // 清空数据时重置分页状态
+    textOverlays.value = []
+    currentPage.value = 0
+    totalPages.value = 0
   }
-}, { deep: true })
+}, { immediate: true, deep: true })
 
 watch(textOverlays, () => {
   emit('textUpdate', textOverlays.value)
@@ -756,6 +1027,10 @@ defineExpose({
   pointer-events: auto;
   user-select: none;
   transition: all 0.2s ease;
+  font-family: 'SimSun', '宋体', serif !important; /* 强制使用宋体字体 */
+  font-weight: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .text-overlay:hover {
@@ -779,11 +1054,12 @@ defineExpose({
   background: transparent;
   border: none;
   outline: none;
-  font-family: inherit;
+  font-family: 'SimSun', '宋体', serif !important; /* 强制使用宋体字体 */
   font-size: inherit;
   color: inherit;
   width: auto;
   min-width: 100px;
+  font-weight: normal;
 }
 
 .drag-handle {

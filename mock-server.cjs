@@ -34,10 +34,10 @@ let students = [
     id: '1',
     name: '张三',
     college: '计算机学院',
-    class: '软件工程2021-1班',
+    className: '软件工程2021-1班',
     counselor: '李老师',
-    dormitory: 'A101',
-    bed: '1',
+    dormitoryNumber: 'A101',
+    bedNumber: '1',
     photo_url: null,
     batchId: 'batch-demo-001'
   },
@@ -45,10 +45,10 @@ let students = [
     id: '2',
     name: '李四',
     college: '计算机学院',
-    class: '软件工程2021-1班',
+    className: '软件工程2021-1班',
     counselor: '李老师',
-    dormitory: 'A101',
-    bed: '2',
+    dormitoryNumber: 'A101',
+    bedNumber: '2',
     photo_url: null,
     batchId: 'batch-demo-001'
   },
@@ -56,10 +56,10 @@ let students = [
     id: '3',
     name: '王五',
     college: '电子工程学院',
-    class: '电子信息2021-2班',
+    className: '电子信息2021-2班',
     counselor: '王老师',
-    dormitory: 'B202',
-    bed: '1',
+    dormitoryNumber: 'B202',
+    bedNumber: '1',
     photo_url: null,
     batchId: 'batch-demo-002'
   }
@@ -438,7 +438,7 @@ app.get('/api/system/status', (req, res) => {
 app.use('/uploads', express.static('uploads'));
 
 // 启动服务器
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Mock API Server is running on http://localhost:${PORT}`);
   console.log(`📁 API Base URL: http://localhost:${PORT}/api`);
   console.log(`📊 Available endpoints:`);
@@ -450,6 +450,7 @@ app.listen(PORT, () => {
   console.log(`   DELETE /api/students/batch - 批量删除学生`);
   console.log(`   GET    /api/students/batch/:batchId - 根据批次获取学生`);
   console.log(`   POST   /api/students/import - 导入Excel`);
+  console.log(`   POST   /api/students/batch-create - 批量创建学生`);
   console.log(`   POST   /api/students/:id/photo - 上传照片`);
   console.log(`   POST   /api/cards/generate/:id - 生成单个信息卡`);
   console.log(`   POST   /api/cards/generate/batch - 批量生成信息卡`);
@@ -461,4 +462,21 @@ app.listen(PORT, () => {
   console.log(`   GET    /api/templates/default - 获取默认模板`);
   console.log(`   GET    /api/system/statistics - 系统统计`);
   console.log(`   GET    /api/system/status - 系统状态`);
+});
+
+// 优雅关闭
+process.on('SIGINT', () => {
+  console.log('\n🛑 正在关闭服务器...');
+  server.close(() => {
+    console.log('✅ 服务器已关闭');
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 正在关闭服务器...');
+  server.close(() => {
+    console.log('✅ 服务器已关闭');
+    process.exit(0);
+  });
 });

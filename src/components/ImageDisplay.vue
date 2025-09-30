@@ -58,9 +58,10 @@
         <el-table-column type="selection" width="55" />
         <el-table-column prop="name" label="姓名" width="120" />
         <el-table-column prop="college" label="学院" width="150" />
-        <el-table-column prop="class" label="班级" width="150" />
-        <el-table-column prop="dormitory" label="寝室" width="120" />
-        <el-table-column prop="bed" label="床位" width="80" />
+        <el-table-column prop="className" label="班级" width="150" />
+        <el-table-column prop="counselor" label="辅导员" width="120" />
+        <el-table-column prop="dormitoryNumber" label="寝室号" width="120" />
+        <el-table-column prop="bedNumber" label="床位号" width="80" />
         <el-table-column label="照片" width="120">
           <template #default="scope">
             <el-image
@@ -139,9 +140,10 @@ interface Student {
   id: string;
   name: string;
   college: string;
-  class: string;
-  dormitory: string;
-  bed: string;
+  className: string;
+  counselor: string;
+  dormitoryNumber: string;
+  bedNumber: string;
   photo_url?: string;
 }
 
@@ -294,10 +296,10 @@ const editStudent = async (student: Student) => {
         inputValue: JSON.stringify({
           name: student.name,
           college: student.college,
-          className: student.class,
+          className: student.className,
           counselor: student.counselor || '',
-          dormitoryNumber: student.dormitory,
-          bedNumber: student.bed
+          dormitoryNumber: student.dormitoryNumber,
+          bedNumber: student.bedNumber
         }, null, 2),
         inputPlaceholder: '请输入JSON格式的学生信息'
       }
