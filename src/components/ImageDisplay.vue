@@ -40,11 +40,22 @@
           
           <el-button type="primary" @click="fetchStudents" :icon="Search">搜索</el-button>
           <el-button @click="refreshData" :icon="Refresh">刷新</el-button>
+          <el-button type="warning" @click="batchDelete" :icon="Delete" :disabled="selectedStudents.length === 0">
+            批量删除 ({{ selectedStudents.length }})
+          </el-button>
         </div>
       </div>
 
       <!-- 学生信息表格 -->
-      <el-table :data="students" v-loading="loading" class="student-table" stripe border>
+      <el-table 
+        :data="students" 
+        v-loading="loading" 
+        class="student-table" 
+        stripe 
+        border
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="name" label="姓名" width="120" />
         <el-table-column prop="college" label="学院" width="150" />
         <el-table-column prop="class" label="班级" width="150" />
@@ -62,17 +73,42 @@
             <span v-else>未上传</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="scope">
-            <el-upload
-              :show-file-list="false"
-              :auto-upload="true"
-              :http-request="(options) => handlePhotoUpload(scope.row.id, options.file)"
-              class="upload-btn"
-            >
-              <el-button size="small" type="primary">上传照片</el-button>
-            </el-upload>
-            <el-button size="small" type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
+            <el-button-group>
+              <el-upload
+                :show-file-list="false"
+                :auto-upload="true"
+                :http-request="(options) => handlePhotoUpload(scope.row.id, options.file)"
+                class="upload-btn"
+              >
+                <el-button size="small" type="primary" :icon="Upload">上传照片</el-button>
+              </el-upload>
+              <el-button 
+                size="small" 
+                type="success" 
+                :icon="Picture"
+                @click="generateSingleCard(scope.row.id)"
+              >
+                生成信息卡
+              </el-button>
+              <el-button 
+                size="small" 
+                type="warning" 
+                :icon="Edit"
+                @click="editStudent(scope.row)"
+              >
+                编辑
+              </el-button>
+              <el-button 
+                size="small" 
+                type="danger" 
+                :icon="Delete"
+                @click="handleDelete(scope.row.id)"
+              >
+                删除
+              </el-button>
+            </el-button-group>
           </template>
         </el-table-column>
       </el-table>
@@ -95,8 +131,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElCard, ElTable, ElTableColumn, ElButton, ElIcon, ElPagination, ElMessage, ElMessageBox, ElImage, ElUpload, ElInput, ElSelect, ElOption } from 'element-plus';
-import { User, Refresh, Search } from '@element-plus/icons-vue';
-import { getStudents, uploadPhoto, deleteStudent, getStudentsByBatch } from '../api';
+import { User, Refresh, Search, Upload, Picture, Edit, Delete } from '@element-plus/icons-vue';
+import { getStudents, uploadPhoto, deleteStudent, getStudentsByBatch, generateCardSingle, updateStudent, deleteStudentsBatch } from '../api';
 
 interface Student {
   id: string;
@@ -116,6 +152,7 @@ const total = ref(0);
 const searchKeyword = ref('');
 const selectedBatchId = ref('');
 const availableBatches = ref<string[]>([]);
+const selectedStudents = ref<Student[]>([]);
 
 onMounted(() => {
   fetchStudents();
@@ -227,6 +264,104 @@ const refreshData = () => {
   selectedBatchId.value = '';
   currentPage.value = 1;
   fetchStudents();
+};
+
+// 生成单个信息卡
+const generateSingleCard = async (studentId: string) => {
+  try {
+    const response = await generateCardSingle(studentId);
+    
+    if (response.data.success) {
+      ElMessage.success('信息卡生成成功');
+    } else {
+      throw new Error(response.data.message || '生成信息卡失败');
+    }
+  } catch (error: any) {
+    console.error('生成信息卡失败:', error);
+    ElMessage.error('生成信息卡失败: ' + (error.response?.data?.message || error.message || '网络错误'));
+  }
+};
+
+// 编辑学生信息
+const editStudent = async (student: Student) => {
+  try {
+    const { value: formData } = await ElMessageBox.prompt(
+      `编辑学生信息 - ${student.name}`,
+      '编辑',
+      {
+        confirmButtonText: '保存',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputValue: JSON.stringify({
+          name: student.name,
+          college: student.college,
+          className: student.class,
+          counselor: student.counselor || '',
+          dormitoryNumber: student.dormitory,
+          bedNumber: student.bed
+        }, null, 2),
+        inputPlaceholder: '请输入JSON格式的学生信息'
+      }
+    );
+
+    const updatedData = JSON.parse(formData);
+    const response = await updateStudent(student.id, updatedData);
+    
+    if (response.data.success) {
+      ElMessage.success('学生信息更新成功');
+      fetchStudents(); // 刷新列表
+    } else {
+      throw new Error(response.data.message || '更新失败');
+    }
+  } catch (error: any) {
+    if (error.message !== 'cancel') {
+      console.error('更新学生信息失败:', error);
+      ElMessage.error('更新失败: ' + (error.response?.data?.message || error.message || '网络错误'));
+    }
+  }
+};
+
+// 处理多选变化
+const handleSelectionChange = (selection: Student[]) => {
+  selectedStudents.value = selection;
+};
+
+// 批量删除
+const batchDelete = async () => {
+  if (selectedStudents.value.length === 0) {
+    ElMessage.warning('请先选择要删除的学生');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedStudents.value.length} 个学生吗？`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    const studentIds = selectedStudents.value.map(student => student.id);
+    
+    // 这里需要导入批量删除API
+    const response = await deleteStudentsBatch(studentIds);
+    
+    if (response.data.success) {
+      ElMessage.success(`成功删除 ${studentIds.length} 个学生`);
+      selectedStudents.value = [];
+      fetchStudents(); // 刷新列表
+    } else {
+      throw new Error(response.data.message || '批量删除失败');
+    }
+  } catch (error: any) {
+    if (error.message !== 'cancel') {
+      console.error('批量删除失败:', error);
+      ElMessage.error('批量删除失败: ' + (error.response?.data?.message || error.message || '网络错误'));
+    }
+  }
 };
 
 // Expose fetchStudents to be called from parent

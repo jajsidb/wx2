@@ -8,14 +8,41 @@
           智能图片展示系统
         </h1>
         <div class="header-actions">
-          <el-button 
-            type="primary" 
-            :icon="Upload" 
-            @click="showUploadDialog = true"
-            size="large"
-          >
-            导入Excel数据
-          </el-button>
+          <el-button-group>
+            <el-button 
+              type="primary" 
+              :icon="Upload" 
+              @click="showUploadDialog = true"
+              size="large"
+            >
+              导入Excel数据
+            </el-button>
+            <el-button 
+              type="success" 
+              :icon="DataAnalysis" 
+              @click="getSystemStats"
+              size="large"
+            >
+              系统统计
+            </el-button>
+            <el-button 
+              type="warning" 
+              :icon="Picture" 
+              @click="generateAllCards"
+              size="large"
+              :disabled="students.length === 0"
+            >
+              批量生成信息卡
+            </el-button>
+            <el-button 
+              type="info" 
+              :icon="Refresh" 
+              @click="refreshAllData"
+              size="large"
+            >
+              刷新数据
+            </el-button>
+          </el-button-group>
         </div>
       </div>
     </header>
@@ -92,11 +119,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
-import { Picture, Upload, DataAnalysis } from '@element-plus/icons-vue'
+import { Picture, Upload, DataAnalysis, Refresh } from '@element-plus/icons-vue'
 import ExcelUpload from './components/ExcelUpload.vue'
 import ImageDisplay from './components/ImageDisplay.vue'
 import MainImageDisplay from './components/MainImageDisplay.vue'
-import { getStudents } from './api'
+import { getStudents, getSystemStatistics, generateCardsBatch } from './api'
 
 // 学生数据接口定义
 interface StudentData {
@@ -237,6 +264,86 @@ onMounted(() => {
   console.log('App组件已挂载')
   initializeApp()
 })
+// 获取系统统计
+const getSystemStats = async () => {
+  globalLoading.value = true
+  loadingText.value = '正在获取系统统计...'
+  
+  try {
+    const response = await getSystemStatistics()
+    
+    if (response.data.success) {
+      const stats = response.data.data
+      ElNotification({
+        title: '系统统计',
+        message: `总学生数: ${stats.totalStudents}, 总批次数: ${stats.totalBatches}, 已生成信息卡: ${stats.totalCards}`,
+        type: 'info',
+        duration: 5000
+      })
+    } else {
+      throw new Error(response.data.message || '获取统计失败')
+    }
+  } catch (error: any) {
+    console.error('获取系统统计失败:', error)
+    ElMessage.error('获取系统统计失败: ' + (error.message || '未知错误'))
+  } finally {
+    globalLoading.value = false
+  }
+}
+
+// 批量生成信息卡
+const generateAllCards = async () => {
+  if (students.value.length === 0) {
+    ElMessage.warning('没有学生数据，无法生成信息卡')
+    return
+  }
+  
+  globalLoading.value = true
+  loadingText.value = '正在批量生成信息卡...'
+  
+  try {
+    const studentIds = students.value.map(student => student.id)
+    const response = await generateCardsBatch(studentIds)
+    
+    if (response.data.success) {
+      ElNotification({
+        title: '批量生成成功',
+        message: `成功生成${studentIds.length}张信息卡`,
+        type: 'success',
+        duration: 3000
+      })
+    } else {
+      throw new Error(response.data.message || '批量生成失败')
+    }
+  } catch (error: any) {
+    console.error('批量生成信息卡失败:', error)
+    ElMessage.error('批量生成信息卡失败: ' + (error.message || '未知错误'))
+  } finally {
+    globalLoading.value = false
+  }
+}
+
+// 刷新所有数据
+const refreshAllData = async () => {
+  globalLoading.value = true
+  loadingText.value = '正在刷新所有数据...'
+  
+  try {
+    await refreshStudents()
+    
+    // 如果有Excel数据，重新处理文字叠加
+    if (excelData.value.length > 0 && mainImageDisplayRef.value) {
+      await mainImageDisplayRef.value.updateTextOverlays(excelData.value)
+    }
+    
+    ElMessage.success('数据刷新完成')
+  } catch (error: any) {
+    console.error('刷新数据失败:', error)
+    ElMessage.error('刷新数据失败: ' + (error.message || '未知错误'))
+  } finally {
+    globalLoading.value = false
+  }
+}
 </script>
 
 <style scoped>

@@ -78,32 +78,35 @@
       
       <!-- 控制工具栏 -->
       <div class="control-toolbar" :class="{ 'collapsed': toolbarCollapsed }">
-        <el-button-group class="toolbar-group">
-          <el-tooltip content="添加文字" placement="top">
-            <el-button :icon="Plus" @click="addTextOverlay" size="small" />
-          </el-tooltip>
-          <el-tooltip content="显示/隐藏网格" placement="top">
-            <el-button 
-              :icon="Grid" 
-              @click="toggleAlignmentGrid" 
-              size="small"
-              :type="showAlignmentGrid ? 'primary' : 'default'"
-            />
-          </el-tooltip>
-          <el-tooltip content="全屏显示" placement="top">
-            <el-button :icon="FullScreen" @click="toggleFullscreen" size="small" />
-          </el-tooltip>
-          <el-tooltip content="导出图片" placement="top">
-            <el-button :icon="Download" @click="exportImage" size="small" type="success" />
-          </el-tooltip>
-        </el-button-group>
+        <div class="toolbar-content" v-show="!toolbarCollapsed">
+          <el-button-group class="toolbar-group">
+            <el-tooltip content="添加文字" placement="top">
+              <el-button :icon="Plus" @click="addTextOverlay" size="small" />
+            </el-tooltip>
+            <el-tooltip content="显示/隐藏网格" placement="top">
+              <el-button 
+                :icon="Grid" 
+                @click="toggleAlignmentGrid" 
+                size="small"
+                :type="showAlignmentGrid ? 'primary' : 'default'"
+              />
+            </el-tooltip>
+            <el-tooltip content="全屏显示" placement="top">
+              <el-button :icon="FullScreen" @click="toggleFullscreen" size="small" />
+            </el-tooltip>
+            <el-tooltip content="导出图片" placement="top">
+              <el-button :icon="Download" @click="exportImage" size="small" type="success" />
+            </el-tooltip>
+          </el-button-group>
+        </div>
         
         <el-button
           class="toolbar-toggle"
           :icon="toolbarCollapsed ? ArrowRight : ArrowLeft"
-          @click="toolbarCollapsed = !toolbarCollapsed"
+          @click="toggleToolbar"
           size="small"
           circle
+          :title="toolbarCollapsed ? '展开工具栏' : '收起工具栏'"
         />
       </div>
     </div>
@@ -538,15 +541,24 @@ const onDragEnd = () => {
   emit('textUpdate', textOverlays.value)
 }
 
+// 切换对齐网格
 const toggleAlignmentGrid = () => {
   showAlignmentGrid.value = !showAlignmentGrid.value
 }
 
+// 切换工具栏收起状态
+const toggleToolbar = () => {
+  toolbarCollapsed.value = !toolbarCollapsed.value
+  // 如果工具栏收起，同时关闭属性面板
+  if (toolbarCollapsed.value) {
+    selectedTextIndex.value = -1
+  }
+}
+
 const toggleFullscreen = () => {
   isFullscreen.value = !isFullscreen.value
-  
   if (isFullscreen.value) {
-    containerRef.value?.requestFullscreen?.()
+    document.documentElement.requestFullscreen?.()
   } else {
     document.exitFullscreen?.()
   }
@@ -843,27 +855,46 @@ defineExpose({
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   transition: all 0.3s ease;
+  min-width: 60px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .control-toolbar.collapsed {
-  transform: translateX(calc(100% - 60px));
+  padding: 8px;
+  width: 60px;
+  height: 60px;
+}
+
+.toolbar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
 }
 
 .toolbar-toggle {
-  position: absolute;
-  left: -40px;
-  top: 50%;
-  transform: translateY(-50%);
+  position: relative;
   width: 40px;
   height: 40px;
   background: rgba(255, 255, 255, 0.95);
-  border: none;
-  border-radius: 8px 0 0 8px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  z-index: 1001;
+}
+
+.toolbar-toggle:hover {
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  transform: scale(1.05);
 }
 
 .toolbar-content {

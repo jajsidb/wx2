@@ -197,7 +197,7 @@
           :disabled="uploading || parsing || invalidDataCount > 0"
           :loading="uploading"
         >
-          上传到服务器 ({{ validDataCount }}/{{ parsedData.length }})
+          保存到数据库 ({{ validDataCount }}/{{ parsedData.length }})
         </el-button>
       </div>
     </el-card>
@@ -275,7 +275,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, UploadFilled, Loading, Delete } from '@element-plus/icons-vue'
 import type { UploadFile, UploadFiles, UploadRawFile } from 'element-plus'
 import * as XLSX from 'xlsx'
-import { uploadExcel } from '../api';
+import { uploadExcel, saveStudentsToDatabase } from '../api';
 
 // 学生数据接口定义
 interface StudentData {
@@ -584,27 +584,33 @@ const handleUpload = async () => {
   uploading.value = true
   uploadProgress.value = 0
   uploadStatus.value = ''
-  progressText.value = '正在上传'
+  progressText.value = '正在保存到数据库'
 
   try {
     // 模拟上传进度
     const progressInterval = setInterval(() => {
       if (uploadProgress.value < 90) {
         uploadProgress.value += Math.random() * 10
-        progressText.value = `正在上传... ${Math.round(uploadProgress.value)}%`
+        progressText.value = `正在保存到数据库... ${Math.round(uploadProgress.value)}%`
       }
     }, 200)
     
-    // 上传解析后的数据而不是原始文件
-      const response = await uploadExcel(file.raw!, currentBatchId.value)
+    // 直接保存解析后的数据到数据库
+    const response = await saveStudentsToDatabase(parsedData.value, currentBatchId.value)
     
     clearInterval(progressInterval)
     uploadProgress.value = 100
     uploadStatus.value = 'success'
-    progressText.value = '上传成功'
+    progressText.value = '保存成功'
     
-    const { total, success, failed, fail_reasons } = response.data.data
-    let message = `上传完成。总共 ${total} 条，成功 ${success} 条，失败 ${failed} 条。`
+    const { total, success, failed, fail_reasons } = response.data.data || {
+      total: parsedData.value.length,
+      success: parsedData.value.length,
+      failed: 0,
+      fail_reasons: []
+    }
+    
+    let message = `数据保存完成。总共 ${total} 条，成功 ${success} 条，失败 ${failed} 条。`
     if (failed > 0 && fail_reasons) {
         message += `\n失败原因：\n${fail_reasons.join('\n')}`
     }
@@ -621,8 +627,8 @@ const handleUpload = async () => {
 
   } catch (error: any) {
     uploadStatus.value = 'exception'
-    progressText.value = '上传失败'
-    const errorMessage = error.response?.data?.message || '文件上传失败，请检查网络或联系管理员'
+    progressText.value = '保存失败'
+    const errorMessage = error.response?.data?.message || '数据保存失败，请检查网络或联系管理员'
     ElMessage.error(errorMessage)
   } finally {
     uploading.value = false
