@@ -171,6 +171,7 @@ interface StudentData {
   counselor: string
   dormitoryNumber: string
   bedNumber: string
+  imageUrl?: string  // 新增图片URL字段，可选
 }
 
 // 响应式数据

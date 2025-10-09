@@ -62,6 +62,7 @@ interface StudentData {
   counselor: string
   dormitoryNumber: string
   bedNumber: string
+  imageUrl?: string  // 新增图片URL字段，可选
 }
 
 // 生成批次ID的工具函数

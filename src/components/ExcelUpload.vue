@@ -37,7 +37,7 @@
           <div class="el-upload__tip">
             支持 .xlsx 和 .xls 格式，文件大小不超过 {{ maxSizeMB }}MB
             <br>
-            <span class="format-tip">表头格式：姓名 | 学院 | 班级 | 辅导员 | 寝室号 | 床位号</span>
+            <span class="format-tip">表头格式：姓名 | 学院 | 班级 | 辅导员 | 寝室号 | 床位号 | 图片URL</span>
           </div>
         </template>
       </el-upload>
@@ -98,6 +98,22 @@
             <el-table-column prop="counselor" label="辅导员" width="100" />
             <el-table-column prop="dormitoryNumber" label="寝室号" width="100" />
             <el-table-column prop="bedNumber" label="床位号" width="80" />
+            <el-table-column prop="imageUrl" label="图片URL" width="200">
+              <template #default="scope">
+                <el-link 
+                  v-if="scope.row.imageUrl" 
+                  :href="scope.row.imageUrl" 
+                  target="_blank" 
+                  type="primary"
+                  :underline="false"
+                  class="image-url-link"
+                >
+                  <el-icon><Picture /></el-icon>
+                  查看图片
+                </el-link>
+                <span v-else class="no-image">无图片</span>
+              </template>
+            </el-table-column>
             <el-table-column label="状态" width="80">
               <template #default="scope">
                 <el-tag 
@@ -140,6 +156,22 @@
                   <p>{{ item.college }} - {{ item.className }}</p>
                   <p>辅导员：{{ item.counselor }}</p>
                   <p>{{ item.dormitoryNumber }} - {{ item.bedNumber }}</p>
+                  <div v-if="item.imageUrl" class="image-info">
+                    <el-link 
+                      :href="item.imageUrl" 
+                      target="_blank" 
+                      type="primary"
+                      :underline="false"
+                      class="card-image-link"
+                    >
+                      <el-icon><Picture /></el-icon>
+                      查看图片
+                    </el-link>
+                  </div>
+                  <div v-else class="no-image-info">
+                    <el-icon><Picture /></el-icon>
+                    <span>无图片</span>
+                  </div>
                 </div>
                 <div class="validation-badge">
                   <el-tag 
@@ -247,6 +279,11 @@
             <el-input v-model="scope.row.bedNumber" size="small" />
           </template>
         </el-table-column>
+        <el-table-column label="图片URL" width="200">
+          <template #default="scope">
+            <el-input v-model="scope.row.imageUrl" size="small" placeholder="输入图片URL" />
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="80" fixed="right">
           <template #default="scope">
             <el-button 
@@ -272,7 +309,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Upload, UploadFilled, Loading, Delete } from '@element-plus/icons-vue'
+import { Upload, UploadFilled, Loading, Delete, Picture } from '@element-plus/icons-vue'
 import type { UploadFile, UploadFiles, UploadRawFile } from 'element-plus'
 import * as XLSX from 'xlsx'
 import { uploadExcel, saveStudentsToDatabase } from '../api';
@@ -286,6 +323,7 @@ interface StudentData {
   counselor: string
   dormitoryNumber: string
   bedNumber: string
+  imageUrl?: string
 }
 
 interface Props {
@@ -337,7 +375,8 @@ const headerMapping = {
   '班级': 'className',
   '辅导员': 'counselor',
   '寝室号': 'dormitoryNumber',
-  '床位号': 'bedNumber'
+  '床位号': 'bedNumber',
+  '图片URL': 'imageUrl'
 }
 
 // 计算属性
@@ -1014,5 +1053,50 @@ onMounted(() => {
 .action-buttons .el-button:focus {
   outline: 2px solid var(--el-color-primary);
   outline-offset: 2px;
+}
+
+/* 图片相关样式 */
+.image-url-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.image-url-link .el-icon {
+  font-size: 14px;
+}
+
+.no-image {
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+}
+
+.image-info {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.card-image-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.no-image-info {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+}
+
+.no-image-info .el-icon {
+  font-size: 14px;
 }
 </style>
