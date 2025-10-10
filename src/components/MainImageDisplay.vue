@@ -746,7 +746,15 @@ const addExcelDataOverlays = () => {
             // 姓名字数判断
             if (config.key === 'name') {
               const nameLength = String(value).length
-              if (nameLength === 3) {
+              if (nameLength > 4) {
+                // 超过4个字的姓名坐标调整，字体大小设置为44
+                if (dataIndex === 0) adjustedX = 732   // 床位1
+                else if (dataIndex === 1) adjustedX = 1809  // 床位2
+                else if (dataIndex === 2) adjustedX = 733   // 床位3
+                else if (dataIndex === 3) adjustedX = 1809  // 床位4
+                // 设置字体大小为44
+                config.fontSize = 44
+              } else if (nameLength === 3) {
                 // 3个字的姓名坐标调整
                 if (dataIndex === 0) adjustedX = 868  // 第一组
                 else if (dataIndex === 1) adjustedX = 1941  // 第二组 (868 + 1085 - 12)
@@ -780,7 +788,7 @@ const addExcelDataOverlays = () => {
               } else if (collegeLength === 6) {
                 // 6个字的学院坐标调整
                 if (dataIndex === 0) adjustedX = 796  // 第一组
-                else if (dataIndex === 1) adjustedX = 1895  // 第二组 (796 + 1085 + 14)
+                else if (dataIndex === 1) adjustedX = 1863  // 第二组 (796 + 1085 + 14)
                 else if (dataIndex === 2) adjustedX = 788  // 第三组
                 else if (dataIndex === 3) adjustedX = 1863  // 第四组 (788 + 1085 - 10)
               }
@@ -791,11 +799,18 @@ const addExcelDataOverlays = () => {
             // 姓名字数判断
             if (config.key === 'name') {
               const nameLength = String(value).length
-              if (nameLength === 3) {
-                // 3个字的姓名坐标调整 (基础坐标 + 24)
-                if (dataIndex === 0) adjustedX = 1455  // 第一组 (1431 + 24)
-                else if (dataIndex === 1) adjustedX = 876   // 第二组 (894 + 24)
-                else if (dataIndex === 2) adjustedX = 1993  // 第三组 (1969 + 24)
+              if (nameLength > 4) {
+                // 超过4个字的姓名坐标调整，字体大小设置为44
+                if (dataIndex === 0) adjustedX = 1277  // 床位1
+                else if (dataIndex === 1) adjustedX = 744   // 床位2
+                else if (dataIndex === 2) adjustedX = 1822  // 床位3
+                // 设置字体大小为44
+                config.fontSize = 44
+              } else if (nameLength === 3) {
+                // 3个字的姓名坐标调整
+                if (dataIndex === 0) adjustedX = 1406  // 床位1
+                else if (dataIndex === 1) adjustedX = 867   // 床位2
+                else if (dataIndex === 2) adjustedX = 1945  // 床位3
               } else if (nameLength === 4) {
                 // 4个字的姓名坐标调整 (基础坐标 - 24)
                 if (dataIndex === 0) adjustedX = 1407  // 第一组 (1431 - 24)
@@ -826,7 +841,13 @@ const addExcelDataOverlays = () => {
             // 姓名字数判断
             if (config.key === 'name') {
               const nameLength = String(value).length
-              if (nameLength === 3) {
+              if (nameLength > 4) {
+                // 超过4个字的姓名坐标调整，字体大小设置为44
+                if (dataIndex === 0) adjustedX = 766   // 床位1
+                else if (dataIndex === 1) adjustedX = 1841  // 床位2
+                // 设置字体大小为44
+                config.fontSize = 44
+              } else if (nameLength === 3) {
                 // 3个字的姓名坐标调整
                 if (dataIndex === 0) adjustedX = 897   // 第一组
                 else if (dataIndex === 1) adjustedX = 1975  // 第二组
@@ -847,15 +868,67 @@ const addExcelDataOverlays = () => {
                 else if (dataIndex === 1) adjustedX = 1975  // 第二组
               } else if (collegeLength === 4) {
                 // 4个字的学院坐标调整
-                if (dataIndex === 0) adjustedX = 1385  // 第一组
-                else if (dataIndex === 1) adjustedX = 1953   // 第二组
+                if (dataIndex === 0) adjustedX = 874   // 床位1
+                else if (dataIndex === 1) adjustedX = 1953  // 床位2
               }
               // 6个字使用原坐标，无需调整
             }
+          } else if (dormitoryType.value === 'mk4') {
+            // 五人寝室字数判断逻辑
+            // 姓名字数判断
+            if (config.key === 'name') {
+              const nameLength = String(value).length
+              if (nameLength > 4) {
+                // 超过4个汉字的姓名坐标调整，字体大小设置为44
+                if (dataIndex === 0) adjustedX = 917   // 第一组
+                else if (dataIndex === 1) adjustedX = 1723  // 第二组
+                else if (dataIndex === 2) adjustedX = 520   // 第三组
+                else if (dataIndex === 3) adjustedX = 1328  // 第四组
+                else if (dataIndex === 4) adjustedX = 2127  // 第五组
+                // 设置字体大小为44
+                config.fontSize = 44
+              } else if (nameLength === 4) {
+                // 4个汉字的姓名坐标调整
+                if (dataIndex === 0) adjustedX = 993   // 第一组
+                else if (dataIndex === 1) adjustedX = 1799  // 第二组
+                else if (dataIndex === 2) adjustedX = 584   // 第三组
+                else if (dataIndex === 3) adjustedX = 1390  // 第四组
+                else if (dataIndex === 4) adjustedX = 2197  // 第五组
+              } else if (nameLength === 2) {
+                // 2个汉字的姓名坐标调整
+                if (dataIndex === 0) adjustedX = 1022  // 第一组
+                else if (dataIndex === 1) adjustedX = 1830  // 第二组
+                else if (dataIndex === 2) adjustedX = 634   // 第三组
+                else if (dataIndex === 3) adjustedX = 1426  // 第四组
+                else if (dataIndex === 4) adjustedX = 2242  // 第五组
+              }
+              // 3个字使用原坐标，无需调整
+            }
+            
+            // 学院名称字数判断
+            if (config.key === 'college') {
+              const collegeLength = String(value).length
+              if (collegeLength === 4) {
+                // 4个汉字的学院坐标调整（与4字姓名相同的x轴坐标）
+                if (dataIndex === 0) adjustedX = 993   // 第一组
+                else if (dataIndex === 1) adjustedX = 1799  // 第二组
+                else if (dataIndex === 2) adjustedX = 584   // 第三组
+                else if (dataIndex === 3) adjustedX = 1390  // 第四组
+                else if (dataIndex === 4) adjustedX = 2197  // 第五组
+              } else if (collegeLength === 3) {
+                // 3个汉字的学院坐标调整
+                if (dataIndex === 0) adjustedX = 1002  // 第一组
+                else if (dataIndex === 1) adjustedX = 1804  // 第二组
+                else if (dataIndex === 2) adjustedX = 583   // 第三组
+                else if (dataIndex === 3) adjustedX = 1416  // 第四组
+                else if (dataIndex === 4) adjustedX = 2219  // 第五组
+              }
+              // 其他字数使用原坐标，无需调整
+            }
           }
           
-          // 确保坐标在画布范围内
-          const clampedX = Math.max(50, Math.min(PHOTOSHOP_WIDTH_PX - 300, adjustedX))
+          // 确保坐标在画布范围内（为五人寝室扩大边界限制）
+          const clampedX = Math.max(50, Math.min(PHOTOSHOP_WIDTH_PX - 100, adjustedX))
           const clampedY = Math.max(50, Math.min(PHOTOSHOP_HEIGHT_PX - 50, adjustedY))
           
           textOverlays.value.push({
@@ -1088,23 +1161,23 @@ const getCoordinateGroups = () => {
         { key: 'dormitoryNumber', label: '寝室号', x: 644, y: 1372, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'bedNumber', label: '床位号', x: 693, y: 1450, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
       ],
-      // 第四组坐标点（第三组x轴偏移+794）：(1377, 1087) 等
+      // 第四组坐标点：(1416, 1087) 等
       [
-        { key: 'name', label: '姓名', x: 1377, y: 1087, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'name', label: '姓名', x: 1416, y: 1087, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'college', label: '学院', x: 1333, y: 1157, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
-        { key: 'className', label: '班级', x: 1369, y: 1231, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'className', label: '班级', x: 1390, y: 1231, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'counselor', label: '辅导员', x: 1424, y: 1302, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'dormitoryNumber', label: '寝室号', x: 1438, y: 1372, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'bedNumber', label: '床位号', x: 1487, y: 1450, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
       ],
-      // 第五组坐标点（第三组x轴偏移+1588）：(2171, 1087) 等
+      // 第五组坐标点：(2219, 1087) 等
       [
-        { key: 'name', label: '姓名', x: 2171, y: 1087, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
-        { key: 'college', label: '学院', x: 2127, y: 1157, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
-        { key: 'className', label: '班级', x: 2163, y: 1231, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
-        { key: 'counselor', label: '辅导员', x: 2218, y: 1302, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
-        { key: 'dormitoryNumber', label: '寝室号', x: 2232, y: 1372, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
-        { key: 'bedNumber', label: '床位号', x: 2281, y: 1450, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
+        { key: 'name', label: '姓名', x: 2219, y: 1087, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'college', label: '学院', x: 2148, y: 1157, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'className', label: '班级', x: 2199, y: 1231, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'counselor', label: '辅导员', x: 2234, y: 1302, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'dormitoryNumber', label: '寝室号', x: 2254, y: 1372, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'bedNumber', label: '床位号', x: 2300, y: 1450, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
       ]
     ]
   } else {
@@ -1141,7 +1214,7 @@ const getCoordinateGroups = () => {
       [
         { key: 'name', label: '姓名', x: 882 + 1085, y: 579 + 511, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'college', label: '学院', x: 810 + 1085, y: 648 + 511, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
-        { key: 'className', label: '班级', x: 1871, y: 1229, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
+        { key: 'className', label: '班级', x: 1917, y: 1229, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'counselor', label: '辅导员', x: 876 + 1085, y: 794 + 511, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'dormitoryNumber', label: '寝室号', x: 894 + 1085, y: 867 + 511, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' },
         { key: 'bedNumber', label: '床位号', x: 932 + 1085, y: 939 + 511, fontSize: 46, fontFamily: 'SimSun, 宋体, serif', color: '#000000' }
