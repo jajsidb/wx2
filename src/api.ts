@@ -206,3 +206,126 @@ export const getDefaultTemplate = () => {
 export const getSystemStatus = () => {
   return apiClient.get('/api/system/status')
 }
+
+// 批量下载相关接口定义
+interface DownloadableFile {
+  id: string
+  name: string
+  url: string
+  size: number
+  type: string
+  studentId?: string
+  createdAt: string
+}
+
+interface DownloadTask {
+  id: string
+  fileId: string
+  fileName: string
+  status: 'pending' | 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled'
+  progress: number
+  downloadedBytes: number
+  totalBytes: number
+  speed: number
+  error?: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface BatchDownloadRequest {
+  fileIds: string[]
+  batchId?: string
+}
+
+// 获取可下载的文件列表
+export const getDownloadableFiles = (params?: {
+  page?: number
+  size?: number
+  type?: string
+  studentId?: string
+  search?: string
+}) => {
+  return apiClient.get('/downloads/files', { params })
+}
+
+// 创建批量下载任务
+export const createBatchDownload = (request: BatchDownloadRequest) => {
+  return apiClient.post('/downloads/batch', request)
+}
+
+// 获取下载任务列表
+export const getDownloadTasks = (batchId?: string) => {
+  return apiClient.get('/downloads/tasks', { 
+    params: batchId ? { batchId } : undefined 
+  })
+}
+
+// 获取单个下载任务状态
+export const getDownloadTaskStatus = (taskId: string) => {
+  return apiClient.get(`/downloads/tasks/${taskId}`)
+}
+
+// 暂停下载任务
+export const pauseDownloadTask = (taskId: string) => {
+  return apiClient.post(`/downloads/tasks/${taskId}/pause`)
+}
+
+// 恢复下载任务
+export const resumeDownloadTask = (taskId: string) => {
+  return apiClient.post(`/downloads/tasks/${taskId}/resume`)
+}
+
+// 取消下载任务
+export const cancelDownloadTask = (taskId: string) => {
+  return apiClient.post(`/downloads/tasks/${taskId}/cancel`)
+}
+
+// 批量暂停下载任务
+export const pauseBatchDownload = (batchId: string) => {
+  return apiClient.post(`/downloads/batch/${batchId}/pause`)
+}
+
+// 批量恢复下载任务
+export const resumeBatchDownload = (batchId: string) => {
+  return apiClient.post(`/downloads/batch/${batchId}/resume`)
+}
+
+// 批量取消下载任务
+export const cancelBatchDownload = (batchId: string) => {
+  return apiClient.post(`/downloads/batch/${batchId}/cancel`)
+}
+
+// 下载单个文件（支持断点续传）
+export const downloadFile = (fileId: string, options?: {
+  range?: string
+  onProgress?: (progress: number, speed: number) => void
+}) => {
+  const headers: any = {}
+  if (options?.range) {
+    headers['Range'] = options.range
+  }
+
+  return apiClient.get(`/downloads/files/${fileId}/download`, {
+    responseType: 'blob',
+    headers,
+    onDownloadProgress: (progressEvent) => {
+      if (options?.onProgress && progressEvent.total) {
+        const progress = (progressEvent.loaded / progressEvent.total) * 100
+        const speed = progressEvent.loaded / ((Date.now() - (progressEvent as any).startTime) / 1000)
+        options.onProgress(progress, speed)
+      }
+    }
+  })
+}
+
+// 获取批量下载进度
+export const getBatchDownloadProgress = (batchId: string) => {
+  return apiClient.get(`/downloads/batch/${batchId}/progress`)
+}
+
+// 清理已完成的下载任务
+export const cleanupCompletedTasks = (batchId?: string) => {
+  return apiClient.delete('/downloads/tasks/cleanup', {
+    params: batchId ? { batchId } : undefined
+  })
+}

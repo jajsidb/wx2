@@ -50,6 +50,14 @@
             >
               模板管理
             </el-button>
+            <el-button 
+              type="success" 
+              :icon="Download" 
+              @click="showBatchDownloadDialog = true"
+              size="large"
+            >
+              批量下载
+            </el-button>
           </el-button-group>
         </div>
       </div>
@@ -98,6 +106,17 @@
       class="template-dialog"
     >
       <TemplateManagement />
+    </el-dialog>
+
+    <!-- 批量下载对话框 -->
+    <el-dialog
+      v-model="showBatchDownloadDialog"
+      title="批量下载管理"
+      width="90%"
+      :close-on-click-modal="false"
+      class="batch-download-dialog"
+    >
+      <BatchDownload />
     </el-dialog>
 
     <!-- 数据统计面板 -->
@@ -154,12 +173,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
-import { Picture, Upload, DataAnalysis, Refresh, Setting } from '@element-plus/icons-vue'
+import { Picture, Upload, DataAnalysis, Refresh, Setting, Download } from '@element-plus/icons-vue'
 import ExcelUpload from './components/ExcelUpload.vue'
 import ImageDisplay from './components/ImageDisplay.vue'
 import MainImageDisplay from './components/MainImageDisplay.vue'
 import TemplateManagement from './components/TemplateManagement.vue'
 import ProgressTracker from './components/ProgressTracker.vue'
+import BatchDownload from './components/BatchDownload.vue'
 import { getStudents, getSystemStatistics, generateCardsBatch } from './api'
 import { handleApiError, showErrorMessage, showSuccessMessage, showWarningMessage, ApiError } from './utils/errorHandler'
 
@@ -180,6 +200,7 @@ const students = ref<any[]>([])
 const excelData = ref<StudentData[]>([])
 const showUploadDialog = ref(false)
 const showTemplateDialog = ref(false)
+const showBatchDownloadDialog = ref(false)
 const showProgressDialog = ref(false)
 const currentTaskId = ref<string>('')
 const globalLoading = ref(false)
